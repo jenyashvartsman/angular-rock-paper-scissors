@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { IPlayerModel } from '../models/player.model';
+import { PlayerType, IPlayerModel } from '../models/player.model';
 
 @Injectable({
   providedIn: 'root',
@@ -12,10 +12,21 @@ export class GameSimService {
   private readonly playerHeight = 32;
   private readonly playersTotal = 45;
 
+  private imageRock = new Image();
+  private imagePaper = new Image();
+  private imageScissors = new Image();
+
   init(): void {
+    this.loadImages();
     this.canvas = this.createCanvas();
     this.players = this.createPlayers();
     this.update();
+  }
+
+  private loadImages(): void {
+    this.imageRock.src = 'assets/rock.svg';
+    this.imagePaper.src = 'assets/paper.svg';
+    this.imageScissors.src = 'assets/scissors.svg';
   }
 
   private createCanvas(): HTMLCanvasElement {
@@ -28,22 +39,27 @@ export class GameSimService {
 
   private createPlayers(): IPlayerModel[] {
     return Array.from({ length: this.playersTotal }, (_elem, index) => {
-      const image = new Image();
-
+      let playerType: PlayerType;
+      let playerImage;
       if (index % 3 === 2) {
-        image.src = 'assets/scissors.svg';
+        playerType = 'scissors';
+        playerImage = this.imageScissors;
       } else if (index % 3 === 1) {
-        image.src = 'assets/paper.svg';
+        playerType = 'paper';
+        playerImage = this.imagePaper;
       } else {
-        image.src = 'assets/rock.svg';
+        playerType = 'rock';
+        playerImage = this.imageRock;
       }
 
       return {
+        index,
+        type: playerType,
         posX: Math.random() * (this.canvas.width - this.playerWidth),
         posY: Math.random() * (this.canvas.height - this.playerHeight),
         speedX: Math.random() * 2 - 1,
         speedY: Math.random() * 2 - 1,
-        image,
+        image: playerImage,
       };
     });
   }
@@ -69,6 +85,33 @@ export class GameSimService {
         player.speedY *= -1; // reverse vertical direction
       }
 
+      this.players.forEach((otherPlayer) => {
+        // Check for collision
+        if (
+          player.index !== otherPlayer.index &&
+          this.checkCollision(
+            player.posX,
+            player.posY,
+            this.playerWidth,
+            this.playerHeight,
+            otherPlayer.posX,
+            otherPlayer.posY,
+            this.playerWidth,
+            this.playerHeight
+          )
+        ) {
+          if (
+            (player.type === 'rock' && otherPlayer.type === 'paper') ||
+            (player.type === 'paper' && otherPlayer.type === 'scissors') ||
+            (player.type === 'scissors' && otherPlayer.type === 'rock')
+          ) {
+            player.image = otherPlayer.image;
+            player.type = otherPlayer.type;
+            return;
+          }
+        }
+      });
+
       ctx!.drawImage(
         player.image,
         player.posX,
@@ -79,5 +122,18 @@ export class GameSimService {
     });
 
     requestAnimationFrame(() => this.update());
+  }
+
+  private checkCollision(
+    x1: number,
+    y1: number,
+    w1: number,
+    h1: number,
+    x2: number,
+    y2: number,
+    w2: number,
+    h2: number
+  ) {
+    return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
   }
 }
