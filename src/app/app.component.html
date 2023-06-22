@@ -11,7 +11,6 @@
   </div>
 
   <div *ngIf="winner$ | async as winner" class="finished">
-    Winner: {{ winner }}
-    <ng-container [ngSwitch]="true"> </ng-container>
+    <span>Winner: {{ winner }}</span>
   </div>
 </header>

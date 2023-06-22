@@ -13,7 +13,7 @@ export class GameSimService {
   private readonly playerWidth = 32;
   private readonly playerHeight = 32;
   private readonly playersTotal = 105;
-  private readonly simSpeed = 3;
+  private readonly simSpeed = 4;
   private animation!: number;
 
   private imageRock = new Image();
