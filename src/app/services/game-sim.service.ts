@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import { PlayerType, IPlayerModel } from '../models/player.model';
+import { BehaviorSubject, Observable } from 'rxjs';
+import { IPlayersCountModel } from '../models/players-count.model';
 
 @Injectable({
   providedIn: 'root',
@@ -10,17 +12,50 @@ export class GameSimService {
   private players: IPlayerModel[] = [];
   private readonly playerWidth = 32;
   private readonly playerHeight = 32;
-  private readonly playersTotal = 45;
+  private readonly playersTotal = 105;
+  private readonly simSpeed = 3;
+  private animation!: number;
 
   private imageRock = new Image();
   private imagePaper = new Image();
   private imageScissors = new Image();
+
+  private paused$: BehaviorSubject<boolean> = new BehaviorSubject(false);
+  private winner$: BehaviorSubject<PlayerType | null> =
+    new BehaviorSubject<PlayerType | null>(null);
+  private playersCount$: BehaviorSubject<IPlayersCountModel> =
+    new BehaviorSubject({ rocks: 0, pappers: 0, scissors: 0 });
 
   init(): void {
     this.loadImages();
     this.canvas = this.createCanvas();
     this.players = this.createPlayers();
     this.update();
+  }
+
+  restart(): void {
+    this.playersCount$.next({ rocks: 0, pappers: 0, scissors: 0 });
+    this.players = this.createPlayers();
+    this.winner$.next(null);
+    cancelAnimationFrame(this.animation);
+    this.update();
+  }
+
+  getPlayersCount(): Observable<IPlayersCountModel> {
+    return this.playersCount$.asObservable();
+  }
+
+  togglePaused(): void {
+    this.paused$.next(!this.paused$.getValue());
+    !this.paused$.getValue() && this.update();
+  }
+
+  isPaused(): Observable<boolean> {
+    return this.paused$.asObservable();
+  }
+
+  getWinner(): Observable<PlayerType | null> {
+    return this.winner$.asObservable();
   }
 
   private loadImages(): void {
@@ -33,7 +68,7 @@ export class GameSimService {
     const canvas = document.createElement('canvas');
     canvas.width = window.innerWidth - 20;
     canvas.height = window.innerHeight - 20;
-    document.body.appendChild(canvas);
+    document.querySelector('app-root')?.appendChild(canvas);
     return canvas;
   }
 
@@ -57,14 +92,27 @@ export class GameSimService {
         type: playerType,
         posX: Math.random() * (this.canvas.width - this.playerWidth),
         posY: Math.random() * (this.canvas.height - this.playerHeight),
-        speedX: Math.random() * 2 - 1,
-        speedY: Math.random() * 2 - 1,
+        speedX: Math.random() * this.simSpeed - 1,
+        speedY: Math.random() * this.simSpeed - 1,
         image: playerImage,
       };
     });
   }
 
   private update(): void {
+    if (this.paused$.getValue()) {
+      return;
+    } else if (this.playersCount$.getValue().rocks === this.playersTotal) {
+      this.winner$.next('rock');
+      return;
+    } else if (this.playersCount$.getValue().scissors === this.playersTotal) {
+      this.winner$.next('scissors');
+      return;
+    } else if (this.playersCount$.getValue().pappers === this.playersTotal) {
+      this.winner$.next('paper');
+      return;
+    }
+
     const ctx = this.canvas.getContext('2d');
     ctx!.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -121,7 +169,14 @@ export class GameSimService {
       );
     });
 
-    requestAnimationFrame(() => this.update());
+    this.playersCount$.next({
+      rocks: this.players.filter((player) => player.type === 'rock').length,
+      pappers: this.players.filter((player) => player.type === 'paper').length,
+      scissors: this.players.filter((player) => player.type === 'scissors')
+        .length,
+    });
+
+    this.animation = requestAnimationFrame(() => this.update());
   }
 
   private checkCollision(

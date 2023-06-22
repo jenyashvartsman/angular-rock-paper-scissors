@@ -1,1 +1,17 @@
-<div #app id="app"></div>
+<header *ngIf="playersCount$ | async as playersCount">
+  <div class="score">
+    <span>Rocks: {{ playersCount.rocks | number }}</span>
+    <span>Pappers: {{ playersCount.pappers | number }}</span>
+    <span>Scisors: {{ playersCount.scissors | number }}</span>
+  </div>
+
+  <div class="actions">
+    <button (click)="togglePaused()">Pause</button>
+    <button (click)="restart()">Restart</button>
+  </div>
+
+  <div *ngIf="winner$ | async as winner" class="finished">
+    Winner: {{ winner }}
+    <ng-container [ngSwitch]="true"> </ng-container>
+  </div>
+</header>
