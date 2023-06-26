@@ -136,13 +136,13 @@ export class GameSimService {
 
   private updatePlayers(ctx: CanvasRenderingContext2D | null) {
     this.players.forEach((player) => {
-      this.updatePlayerPostion(player);
+      this.updatePlayerPosition(player);
       this.updatePlayerCollistion(player);
-      this.updatePlayerPosition(ctx, player);
+      this.drawPlayer(ctx, player);
     });
   }
 
-  private updatePlayerPostion(player: IPlayerModel) {
+  private updatePlayerPosition(player: IPlayerModel) {
     player.posX += player.speedX;
     player.posY += player.speedY;
 
@@ -186,7 +186,7 @@ export class GameSimService {
     });
   }
 
-  private updatePlayerPosition(
+  private drawPlayer(
     ctx: CanvasRenderingContext2D | null,
     player: IPlayerModel
   ) {
