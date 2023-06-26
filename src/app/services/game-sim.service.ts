@@ -8,18 +8,21 @@ import { IPlayersCountModel } from '../models/players-count.model';
 })
 export class GameSimService {
   private canvas!: HTMLCanvasElement;
+  private animation!: number;
 
+  // game configs
   private players: IPlayerModel[] = [];
   private readonly playerWidth = 32;
   private readonly playerHeight = 32;
   private readonly playersTotal = 105;
-  private readonly simSpeed = 4;
-  private animation!: number;
+  private readonly simSpeed = 3;
 
+  // players
   private imageRock = new Image();
   private imagePaper = new Image();
   private imageScissors = new Image();
 
+  // game state
   private paused$: BehaviorSubject<boolean> = new BehaviorSubject(false);
   private winner$: BehaviorSubject<PlayerType | null> =
     new BehaviorSubject<PlayerType | null>(null);
@@ -37,6 +40,7 @@ export class GameSimService {
     this.playersCount$.next({ rocks: 0, pappers: 0, scissors: 0 });
     this.players = this.createPlayers();
     this.winner$.next(null);
+    this.paused$.next(false);
     cancelAnimationFrame(this.animation);
     this.update();
   }
@@ -100,83 +104,108 @@ export class GameSimService {
   }
 
   private update(): void {
-    if (this.paused$.getValue()) {
+    if (this.isGameStopped()) {
       return;
+    } else {
+      const ctx = this.canvas.getContext('2d');
+      ctx!.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+      this.updatePlayers(ctx);
+      this.updateCounters();
+
+      this.animation = requestAnimationFrame(() => this.update());
+    }
+  }
+
+  private isGameStopped(): boolean {
+    if (this.paused$.getValue()) {
+      return true;
     } else if (this.playersCount$.getValue().rocks === this.playersTotal) {
       this.winner$.next('rock');
-      return;
+      return true;
     } else if (this.playersCount$.getValue().scissors === this.playersTotal) {
       this.winner$.next('scissors');
-      return;
+      return true;
     } else if (this.playersCount$.getValue().pappers === this.playersTotal) {
       this.winner$.next('paper');
-      return;
+      return true;
+    } else {
+      return false;
     }
+  }
 
-    const ctx = this.canvas.getContext('2d');
-    ctx!.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
+  private updatePlayers(ctx: CanvasRenderingContext2D | null) {
     this.players.forEach((player) => {
-      player.posX += player.speedX;
-      player.posY += player.speedY;
-
-      if (
-        player.posX < 0 ||
-        player.posX + this.playerWidth > this.canvas.width
-      ) {
-        player.speedX *= -1; // reverse horizontal direction
-      }
-      if (
-        player.posY < 0 ||
-        player.posY + this.playerHeight > this.canvas.height
-      ) {
-        player.speedY *= -1; // reverse vertical direction
-      }
-
-      this.players.forEach((otherPlayer) => {
-        // Check for collision
-        if (
-          player.index !== otherPlayer.index &&
-          this.checkCollision(
-            player.posX,
-            player.posY,
-            this.playerWidth,
-            this.playerHeight,
-            otherPlayer.posX,
-            otherPlayer.posY,
-            this.playerWidth,
-            this.playerHeight
-          )
-        ) {
-          if (
-            (player.type === 'rock' && otherPlayer.type === 'paper') ||
-            (player.type === 'paper' && otherPlayer.type === 'scissors') ||
-            (player.type === 'scissors' && otherPlayer.type === 'rock')
-          ) {
-            player.image = otherPlayer.image;
-            player.type = otherPlayer.type;
-            return;
-          }
-        }
-      });
-
-      ctx!.drawImage(
-        player.image,
-        player.posX,
-        player.posY,
-        this.playerWidth,
-        this.playerHeight
-      );
+      this.updatePlayerPostion(player);
+      this.updatePlayerCollistion(player);
+      this.updatePlayerPosition(ctx, player);
     });
+  }
 
+  private updatePlayerPostion(player: IPlayerModel) {
+    player.posX += player.speedX;
+    player.posY += player.speedY;
+
+    if (player.posX < 0 || player.posX + this.playerWidth > this.canvas.width) {
+      player.speedX *= -1; // reverse horizontal direction
+    }
+    if (
+      player.posY < 0 ||
+      player.posY + this.playerHeight > this.canvas.height
+    ) {
+      player.speedY *= -1;
+    }
+  }
+
+  private updatePlayerCollistion(player: IPlayerModel) {
+    this.players.forEach((otherPlayer) => {
+      // Check for collision
+      if (
+        player.index !== otherPlayer.index &&
+        this.checkCollision(
+          player.posX,
+          player.posY,
+          this.playerWidth,
+          this.playerHeight,
+          otherPlayer.posX,
+          otherPlayer.posY,
+          this.playerWidth,
+          this.playerHeight
+        )
+      ) {
+        if (
+          (player.type === 'rock' && otherPlayer.type === 'paper') ||
+          (player.type === 'paper' && otherPlayer.type === 'scissors') ||
+          (player.type === 'scissors' && otherPlayer.type === 'rock')
+        ) {
+          player.image = otherPlayer.image;
+          player.type = otherPlayer.type;
+          return;
+        }
+      }
+    });
+  }
+
+  private updatePlayerPosition(
+    ctx: CanvasRenderingContext2D | null,
+    player: IPlayerModel
+  ) {
+    ctx!.drawImage(
+      player.image,
+      player.posX,
+      player.posY,
+      this.playerWidth,
+      this.playerHeight
+    );
+  }
+
+  private updateCounters(): void {
     this.playersCount$.next({
       rocks: this.players.filter((player) => player.type === 'rock').length,
       pappers: this.players.filter((player) => player.type === 'paper').length,
       scissors: this.players.filter((player) => player.type === 'scissors')
         .length,
     });
-
-    this.animation = requestAnimationFrame(() => this.update());
   }
 
   private checkCollision(
